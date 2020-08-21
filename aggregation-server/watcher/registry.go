@@ -26,7 +26,9 @@ func NewRegistry() *Registry {
 
 // AddNode adds a node to the registry.
 func (r *Registry) AddNode(node *Node) {
-	r.nodes[node.Instance] = node
+	if node, nodeExists := r.nodes[node.Instance]; !nodeExists {
+		r.nodes[node.Instance] = node
+	}
 }
 
 // RemoveNode removes a node with the given id from the
