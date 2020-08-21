@@ -22,7 +22,10 @@ func main() {
 	mux.HandleFunc("/bye", server.ByeHandler(reg))
 	mux.HandleFunc("files", server.FilesHandler())
 
-	srv := &http.Server{Addr: ":8000"}
+	srv := &http.Server{
+		Addr:    ":8000",
+		Handler: mux,
+	}
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("Error starting server: %v", err)
