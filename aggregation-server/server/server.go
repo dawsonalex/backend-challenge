@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"sort"
+
+	"github.com/dawsonalex/aggregator/lib"
 
 	"github.com/google/uuid"
 
 	"github.com/dawsonalex/aggregator/watcher"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,15 +30,17 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 			return
 		}
 
-		var node watcher.Node
+		node := struct {
+			Instance uuid.UUID
+			port     int
+		}{}
 		err = json.Unmarshal(body, &node)
 		if err != nil {
 			log.Errorf("Error unmarshalling node: %v", err)
 			http.Error(w, "Error parding JSON", http.StatusBadRequest)
 			return
 		}
-		log.WithField("ID", node.Instance).Println("request to add instance")
-		reg.AddNode(&node)
+		reg.AddNode(node.Instance)
 	})
 }
 
@@ -65,13 +71,52 @@ func ByeHandler(reg *watcher.Registry) http.HandlerFunc {
 			http.Error(w, "Error parsing node ID", http.StatusBadRequest)
 			return
 		}
+		log.WithField("ID", nodeID).Println("Removing node")
 		reg.RemoveNode(nodeID)
 	})
 }
 
 // FilesHandler handles requests to the /files endpoint.
-func FilesHandler() http.HandlerFunc {
+func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			// sort and return the filelist
+			files := reg.ListFiles()
+			sort.Strings(files)
+			fileResponse := struct {
+				files []string
+			}{
+				files: files,
+			}
+			log.Println("Responding with file list.")
+			json.NewEncoder(w).Encode(fileResponse)
 
+		} else if r.Method == http.MethodPatch {
+			// Do the file operation
+			defer r.Body.Close()
+			decoder := json.NewDecoder(r.Body)
+			var operations lib.OperationRequests
+
+			err := decoder.Decode(&operations)
+			if err != nil {
+				log.Errorf("Error decoding JSON: %v", err)
+				http.Error(w, "Error parsing JSON", http.StatusBadRequest)
+				return
+			}
+
+			for _, op := range operations {
+				log.WithFields(logrus.Fields{
+					"ID": op.Instance,
+					"op": op.Type,
+				}).Println("Doing file operation")
+				if node := reg.Node(op.Instance); node != nil {
+					node.Do(watcher.Operation{
+						Type:     op.Type,
+						SeqNo:    op.SeqNo,
+						Filename: op.Value.Filename,
+					})
+				}
+			}
+		}
 	})
 }

@@ -20,7 +20,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/hello", server.HelloHandler(reg))
 	mux.HandleFunc("/bye", server.ByeHandler(reg))
-	mux.HandleFunc("files", server.FilesHandler())
+	mux.HandleFunc("/files", server.FilesHandler(reg))
 
 	srv := &http.Server{
 		Addr:    ":8000",
