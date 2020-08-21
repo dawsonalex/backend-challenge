@@ -33,7 +33,7 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 			http.Error(w, "Error parding JSON", http.StatusBadRequest)
 			return
 		}
-
+		log.WithField("ID", node.Instance).Println("request to add instance")
 		reg.AddNode(&node)
 	})
 }
