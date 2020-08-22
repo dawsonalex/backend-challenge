@@ -34,7 +34,9 @@ func (n *Node) Do(op Operation) {
 
 		switch op.Type {
 		case addOperation:
+			n.mux.Lock()
 			n.files[op.Filename] = struct{}{}
+			n.mux.Unlock()
 		case removeOperation:
 			delete(n.files, op.Filename)
 		}

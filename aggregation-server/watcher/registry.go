@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,13 +22,22 @@ const (
 type Registry struct {
 	nodes map[uuid.UUID]*Node
 	mux   sync.RWMutex
+	log   *logrus.Logger
 }
 
 // NewRegistry returns an empty node registry.
-func NewRegistry() *Registry {
+func NewRegistry(logger *logrus.Logger) *Registry {
+	if logger == nil {
+		logger = defaultLogger()
+	}
 	return &Registry{
 		nodes: make(map[uuid.UUID]*Node),
+		log:   logger,
 	}
+}
+
+func defaultLogger() *logrus.Logger {
+	return log.New()
 }
 
 // AddNode adds a node to the registry. Returns true if the node
@@ -37,7 +47,7 @@ func NewRegistry() *Registry {
 // from the file channel.
 func (r *Registry) AddNode(id uuid.UUID) (chan string, chan struct{}, bool) {
 	if _, nodeExists := r.nodes[id]; !nodeExists {
-		log.WithField("node-id", id).Println("Adding node")
+		r.log.WithField("node-id", id).Debugln("Adding node")
 		fileMap := make(map[string]struct{})
 		node := &Node{
 			Instance: id,
@@ -68,6 +78,7 @@ func (r *Registry) AddNode(id uuid.UUID) (chan string, chan struct{}, bool) {
 func (r *Registry) RemoveNode(id uuid.UUID) {
 	r.mux.Lock()
 	if _, nodeExists := r.nodes[id]; nodeExists {
+		r.log.WithField("node-id", id).Debugln("Removing node")
 		delete(r.nodes, id)
 	}
 	r.mux.Unlock()
@@ -77,9 +88,9 @@ func (r *Registry) RemoveNode(id uuid.UUID) {
 func (r *Registry) Node(id uuid.UUID) *Node {
 	r.mux.RLock()
 	if node, nodeExists := r.nodes[id]; nodeExists {
+		r.mux.RUnlock()
 		return node
 	}
-	r.mux.RUnlock()
 	return nil
 }
 
