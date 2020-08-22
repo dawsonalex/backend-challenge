@@ -3,7 +3,6 @@ package watcher
 import (
 	"sync"
 
-	"github.com/dawsonalex/aggregator/aggregator"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -11,6 +10,10 @@ import (
 const (
 	addOperation    = "add"
 	removeOperation = "remove"
+
+	// NoSequence reqresents a nodes sequence
+	// value that's not yet initialised.
+	NoSequence = -1
 )
 
 type (
@@ -19,7 +22,6 @@ type (
 	Node struct {
 		Instance uuid.UUID
 		seqno    int
-		ops      chan aggregator.Operation
 		files    map[string]struct{}
 		mux      sync.RWMutex
 	}
@@ -47,26 +49,38 @@ func NewRegistry() *Registry {
 	}
 }
 
-// AddNode adds a node to the registry.
-func (r *Registry) AddNode(id uuid.UUID) {
+// AddNode adds a node to the registry. Returns true if the node
+// was added and did not exist before, otherwise returns false.
+func (r *Registry) AddNode(id uuid.UUID) (chan string, bool) {
 	if _, nodeExists := r.nodes[id]; !nodeExists {
-		log.WithField("ID", id).Println("Adding node")
-		r.mux.Lock()
-		r.nodes[id] = &Node{
+		log.WithField("instance-id", id).Println("Adding node")
+		fileMap := make(map[string]struct{})
+		node := &Node{
 			Instance: id,
-			seqno:    -1,
-			ops:      make(chan aggregator.Operation),
+			seqno:    NoSequence,
+			files:    fileMap,
 		}
+		r.mux.Lock()
+		r.nodes[id] = node
 		r.mux.Unlock()
+
+		fileChan := make(chan string)
+		go func() {
+			for file := range fileChan {
+				node.mux.Lock()
+				node.files[file] = struct{}{}
+			}
+		}()
+		return fileChan, true
 	}
+	return nil, false
 }
 
 // RemoveNode removes a node with the given id from the
 // regsitry.
 func (r *Registry) RemoveNode(id uuid.UUID) {
 	r.mux.Lock()
-	if node, nodeExists := r.nodes[id]; nodeExists {
-		close(node.ops)
+	if _, nodeExists := r.nodes[id]; nodeExists {
 		delete(r.nodes, id)
 	}
 	r.mux.Unlock()
@@ -94,8 +108,9 @@ func (r *Registry) ListFiles() []string {
 
 // Do tells a node to send an operation down its operation channel.
 func (n *Node) Do(op Operation) {
-	// Only carry out the operation if it's the next in sequence.
-	if op.SeqNo == n.seqno+1 {
+	// Only carry out the operation if it's the next in sequence, or sequence hasn't
+	// been set yet.
+	if n.seqno == NoSequence || op.SeqNo == n.seqno+1 {
 		n.seqno = op.SeqNo
 
 		switch op.Type {
@@ -109,7 +124,7 @@ func (n *Node) Do(op Operation) {
 
 // ListFiles lists the files that the node is watching.
 func (n *Node) ListFiles() []string {
-	files := make([]string, len(n.files))
+	files := make([]string, 0)
 	n.mux.RLock()
 	for k := range n.files {
 		files = append(files, k)

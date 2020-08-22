@@ -2,9 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sort"
+	"strings"
 
 	"github.com/dawsonalex/aggregator/lib"
 
@@ -32,16 +35,46 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 
 		node := struct {
 			Instance uuid.UUID
-			port     int
+			Port     int
 		}{}
 		err = json.Unmarshal(body, &node)
 		if err != nil {
 			log.Errorf("Error unmarshalling node: %v", err)
-			http.Error(w, "Error parding JSON", http.StatusBadRequest)
+			http.Error(w, "Error parsing JSON", http.StatusBadRequest)
 			return
 		}
-		reg.AddNode(node.Instance)
+
+		// Add the node and set it's initial files if it's new.
+		if fileChan, isNew := reg.AddNode(node.Instance); isNew {
+			files := make([]string, 0)
+			url, err := alterAddress(r.RemoteAddr, node.Port)
+			if err == nil {
+				files, err = watcher.GetNodeFiles(url)
+				if err != nil {
+					log.Errorf("error getting files from watcher: %v", err)
+					return
+				}
+
+				for _, v := range files {
+					fileChan <- v
+				}
+				close(fileChan)
+			} else {
+				log.Errorf("error parsing url: %v", err)
+				return
+			}
+		}
 	})
+}
+
+func alterAddress(remoteAddr string, port int) (*url.URL, error) {
+	host := strings.Split(remoteAddr, ":")[0]
+	newAddr := fmt.Sprintf("http://%s:%d/files", host, port)
+	url, err := url.Parse(newAddr)
+	if err != nil {
+		return nil, err
+	}
+	return url, nil
 }
 
 // ByeHandler handles requests to the /bye endpoint.
@@ -83,12 +116,14 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			// sort and return the filelist
 			files := reg.ListFiles()
 			sort.Strings(files)
+			log.WithField("len", len(files)).Println("listing files: ", files)
 			fileResponse := struct {
-				files []string
+				Files []string
 			}{
-				files: files,
+				Files: files,
 			}
-			log.Println("Responding with file list.")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(fileResponse)
 
 		} else if r.Method == http.MethodPatch {
