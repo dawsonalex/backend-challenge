@@ -116,7 +116,6 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			// sort and return the filelist
 			files := reg.ListFiles()
 			sort.Strings(files)
-			log.WithField("len", len(files)).Println("listing files: ", files)
 			fileResponse := struct {
 				Files []string
 			}{
