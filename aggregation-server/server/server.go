@@ -43,7 +43,7 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 		}
 
 		// Add the node and set it's initial files if it's new.
-		if fileChan, isNew := reg.AddNode(node.Instance); isNew {
+		if fileChan, _, isNew := reg.AddNode(node.Instance); isNew {
 			files := make([]string, 0)
 			url, err := alterAddress(r.RemoteAddr, node.Port)
 			if err == nil {

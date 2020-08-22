@@ -32,7 +32,10 @@ func NewRegistry() *Registry {
 
 // AddNode adds a node to the registry. Returns true if the node
 // was added and did not exist before, otherwise returns false.
-func (r *Registry) AddNode(id uuid.UUID) (chan string, bool) {
+// AddNode also returns a channel to directly add filenames to a node via,
+// and done channel that will receive a value when all the filenames are read
+// from the file channel.
+func (r *Registry) AddNode(id uuid.UUID) (chan string, chan struct{}, bool) {
 	if _, nodeExists := r.nodes[id]; !nodeExists {
 		log.WithField("node-id", id).Println("Adding node")
 		fileMap := make(map[string]struct{})
@@ -46,16 +49,18 @@ func (r *Registry) AddNode(id uuid.UUID) (chan string, bool) {
 		r.mux.Unlock()
 
 		fileChan := make(chan string)
+		done := make(chan struct{})
 		go func() {
 			for file := range fileChan {
 				node.mux.Lock()
 				node.files[file] = struct{}{}
 				node.mux.Unlock()
 			}
+			done <- struct{}{}
 		}()
-		return fileChan, true
+		return fileChan, done, true
 	}
-	return nil, false
+	return nil, nil, false
 }
 
 // RemoveNode removes a node with the given id from the
