@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/dawsonalex/aggregator/watcher"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -33,10 +33,8 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 			return
 		}
 
-		node := struct {
-			Instance uuid.UUID
-			Port     int
-		}{}
+		// unmarshal the request into the expected struct.
+		var node lib.HelloRequest
 		err = json.Unmarshal(body, &node)
 		if err != nil {
 			log.Errorf("Error unmarshalling node: %v", err)
@@ -49,12 +47,15 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 			files := make([]string, 0)
 			url, err := alterAddress(r.RemoteAddr, node.Port)
 			if err == nil {
+				// Request the nodes file list
 				files, err = watcher.GetNodeFiles(url)
 				if err != nil {
 					log.Errorf("error getting files from watcher: %v", err)
 					return
 				}
 
+				// send the files down the file channel
+				// for the node to add.
 				for _, v := range files {
 					fileChan <- v
 				}
@@ -67,6 +68,8 @@ func HelloHandler(reg *watcher.Registry) http.HandlerFunc {
 	})
 }
 
+// Take a remote address, format it, set the port, and return a *url.URL
+// that represents the formatted address.
 func alterAddress(remoteAddr string, port int) (*url.URL, error) {
 	host := strings.Split(remoteAddr, ":")[0]
 	newAddr := fmt.Sprintf("http://%s:%d/files", host, port)
@@ -88,9 +91,7 @@ func ByeHandler(reg *watcher.Registry) http.HandlerFunc {
 		defer r.Body.Close()
 		decoder := json.NewDecoder(r.Body)
 
-		nodeInstance := struct {
-			ID string `json:"instance"`
-		}{}
+		var nodeInstance lib.ByeRequest
 		err := decoder.Decode(&nodeInstance)
 		if err != nil {
 			log.Error("Error decoding JSON")
@@ -98,7 +99,7 @@ func ByeHandler(reg *watcher.Registry) http.HandlerFunc {
 			return
 		}
 
-		nodeID, err := uuid.Parse(nodeInstance.ID)
+		nodeID, err := uuid.Parse(nodeInstance.Instance)
 		if err != nil {
 			log.WithField("value", nodeID).Error("Error parsing node ID")
 			http.Error(w, "Error parsing node ID", http.StatusBadRequest)
@@ -116,9 +117,7 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			// sort and return the filelist
 			files := reg.ListFiles()
 			sort.Strings(files)
-			fileResponse := struct {
-				Files []string
-			}{
+			fileResponse := lib.FilesResponse{
 				Files: files,
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -129,8 +128,8 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			// Do the file operation
 			defer r.Body.Close()
 			decoder := json.NewDecoder(r.Body)
-			var operations lib.OperationRequests
 
+			var operations lib.OperationRequests
 			err := decoder.Decode(&operations)
 			if err != nil {
 				log.Errorf("Error decoding JSON: %v", err)
@@ -139,7 +138,7 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			}
 
 			for _, op := range operations {
-				log.WithFields(logrus.Fields{
+				log.WithFields(log.Fields{
 					"ID": op.Instance,
 					"op": op.Type,
 				}).Println("Doing file operation")
@@ -153,4 +152,16 @@ func FilesHandler(reg *watcher.Registry) http.HandlerFunc {
 			}
 		}
 	})
+}
+
+// Sort filenames in ascending order based on name without extension.
+// Uses natural sort.
+func sortFiles(filenames []string) []string {
+	sort.SliceStable(filenames, func(i, j int) bool {
+		// trim the file extension before comparing file names.
+		first := strings.TrimSuffix(filenames[i], filepath.Ext(filenames[i]))
+		second := strings.TrimSuffix(filenames[j], filepath.Ext(filenames[j]))
+		return first < second
+	})
+	return filenames
 }
