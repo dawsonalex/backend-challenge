@@ -69,6 +69,7 @@ func (r *Registry) AddNode(id uuid.UUID) (chan string, bool) {
 			for file := range fileChan {
 				node.mux.Lock()
 				node.files[file] = struct{}{}
+				node.mux.Unlock()
 			}
 		}()
 		return fileChan, true
