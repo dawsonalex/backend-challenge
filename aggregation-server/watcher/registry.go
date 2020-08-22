@@ -47,7 +47,7 @@ func defaultLogger() *logrus.Logger {
 // from the file channel.
 func (r *Registry) AddNode(id uuid.UUID) (chan string, chan struct{}, bool) {
 	if _, nodeExists := r.nodes[id]; !nodeExists {
-		r.log.WithField("node-id", id).Debugln("Adding node")
+		r.log.WithField("node-id", id).Infoln("Adding node")
 		fileMap := make(map[string]struct{})
 		node := &Node{
 			Instance: id,
@@ -78,7 +78,7 @@ func (r *Registry) AddNode(id uuid.UUID) (chan string, chan struct{}, bool) {
 func (r *Registry) RemoveNode(id uuid.UUID) {
 	r.mux.Lock()
 	if _, nodeExists := r.nodes[id]; nodeExists {
-		r.log.WithField("node-id", id).Debugln("Removing node")
+		r.log.WithField("node-id", id).Infoln("Removing node")
 		delete(r.nodes, id)
 	}
 	r.mux.Unlock()
@@ -101,5 +101,6 @@ func (r *Registry) ListFiles() []string {
 	for _, node := range r.nodes {
 		files = append(files, node.ListFiles()...)
 	}
+	r.log.Debugln("listing files: ", files)
 	return files
 }
