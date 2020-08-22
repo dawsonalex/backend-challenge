@@ -10,7 +10,7 @@ import (
 // their initial file state can be set.
 func TestAddNode(t *testing.T) {
 
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	filechan, done, added := reg.AddNode(uuid.New())
 	if added {
@@ -30,7 +30,7 @@ func TestAddNode(t *testing.T) {
 
 func TestAddExistingNode(t *testing.T) {
 
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	id := uuid.New()
 	reg.AddNode(id)
@@ -44,7 +44,7 @@ func TestAddExistingNode(t *testing.T) {
 
 func TestRemoveNode(t *testing.T) {
 
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	id := uuid.New()
 	filechan, done, added := reg.AddNode(id)
@@ -64,7 +64,7 @@ func TestRemoveNode(t *testing.T) {
 
 func TestRemoveNonExistingNode(t *testing.T) {
 
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	id := uuid.New()
 	reg.AddNode(id)
@@ -77,7 +77,7 @@ func TestRemoveNonExistingNode(t *testing.T) {
 }
 
 func TestAddOperation(t *testing.T) {
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	id := uuid.New()
 	reg.AddNode(id)
@@ -94,7 +94,7 @@ func TestAddOperation(t *testing.T) {
 }
 
 func TestRemoveOperation(t *testing.T) {
-	reg := NewRegistry()
+	reg := NewRegistry(nil)
 
 	id := uuid.New()
 	reg.AddNode(id)
