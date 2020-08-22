@@ -2,6 +2,22 @@
 
 Communicates with Watcher Nodes to retrieve the complete list of files across multiple nodes. Accepts requests from these nodes to update the current list.
 
+## Usage
+
+To run the aggregator use 
+
+```
+go run main.go
+```
+
+from the aggregation-server directory.
+
+### Flags
+
+The server uses a `-p` flag to set the port it listens for watcher connections on. The default is 8000.
+
+Use the `-log` flag with any of: (debug, info, warning, fatal, panic) to set the log level for the server. The default is `info`.
+
 ## Endpoints
 
 `GET http://localhost:8000/files`
