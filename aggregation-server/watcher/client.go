@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -12,7 +11,6 @@ import (
 // GetNodeFiles makes a request to a watcher node for
 // its file list.
 func GetNodeFiles(url *url.URL) ([]string, error) {
-	log.Println("requesting files from ", url.String())
 	req, err := http.NewRequest(
 		http.MethodGet,
 		url.String(),
