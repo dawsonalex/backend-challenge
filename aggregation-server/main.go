@@ -35,7 +35,7 @@ func main() {
 	// Wait here until SIGINT received, then exec callback function
 	// to gracefully shutdown.
 	awaitInterrupt(func(done chan bool) {
-		if err := srv.Shutdown(context.TODO()); err != nil {
+		if err := srv.Shutdown(context.Background()); err != nil {
 			panic(err)
 		}
 		done <- true
