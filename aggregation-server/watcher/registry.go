@@ -34,7 +34,7 @@ func NewRegistry() *Registry {
 // was added and did not exist before, otherwise returns false.
 func (r *Registry) AddNode(id uuid.UUID) (chan string, bool) {
 	if _, nodeExists := r.nodes[id]; !nodeExists {
-		log.WithField("instance-id", id).Println("Adding node")
+		log.WithField("node-id", id).Println("Adding node")
 		fileMap := make(map[string]struct{})
 		node := &Node{
 			Instance: id,
