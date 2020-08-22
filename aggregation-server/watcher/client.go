@@ -40,7 +40,7 @@ func GetNodeFiles(url *url.URL) ([]string, error) {
 		return nil, errors.New("error reading node response")
 	}
 
-	files := make([]string, len(fileResponse.Files))
+	files := make([]string, 0)
 
 	for _, file := range fileResponse.Files {
 		files = append(files, file.Filename)
